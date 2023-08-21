@@ -5,6 +5,8 @@
 #include <ESP8266WiFi.h>
 #include <FirebaseESP8266.h>
 
+#include <SoftwareSerial.h>
+SoftwareSerial espSerial(2, 3);
 const char* ssid = "hamodi";
 const char* password = "momen45321";
 const char* Firebase_Host = "braille-printer-b923b-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -37,33 +39,58 @@ void connectToWiFi()
 void setup() {
   
   Serial.begin(9600);
+  espSerial.begin(19200);
   connectToWiFi();
   delay(10);
   Firebase.begin(Firebase_Host, Firebase_Auth);
   
 }
 
-void getDataFirebase(String node)
+String getDataFirebase(String node)
 {
   if (Firebase.getString(firebaseData, node)) {
     // Check for success
     if (firebaseData.dataType() == "string") {
       Serial.print("Read data: ");
       Serial.println(firebaseData.stringData());
-    } else {
+      return firebaseData.stringData();
+    } 
+    else {
       Serial.println("Failed to read data");
+      
     }
   } else {
     Serial.println("Error fetching data");
   }
+  return "";
+}
+
+void setDataFirebase(String node,String newValue)
+{
+  if (Firebase.setString(firebaseData, node, newValue)) {
+    Serial.println("Value updated successfully");
+  } else {
+    Serial.println("Error updating value");
+  }
 }
 
 void loop() {
-
   if (WiFi.status() == WL_CONNECTED) {
-    getDataFirebase("/msg");
+    String m = getDataFirebase("/msg");
+    espSerial.println("sssssssssss");
+    if(getDataFirebase("/status") != "old")
+    {
+      setDataFirebase("/status","old");  
+    }
+    
   }
-  delay(1000); 
+  else
+  {
+    Serial.println("No WiFi connection Reconnect");
+    connectToWiFi();
+  }
+  
+  delay(100); 
   //***********************************************************************************
 }
 
