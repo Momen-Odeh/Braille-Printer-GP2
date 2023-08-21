@@ -33,6 +33,8 @@ Servo s;
 const int numSymbol = 46; // Number of letters in the alphabet
 const int numRows = 3;     // Number of rows in each matrix
 const int numCols = 2;     // Number of columns in each matrix
+int PrevPrint = false;
+int printIndex = 0;
 bool SymbolMatrices[numSymbol][numRows][numCols]= 
 {
   // Matrix for 'A'
@@ -366,6 +368,49 @@ void knock()
   digitalWrite(Solenoid,HIGH);
 }
 
+void printString(String text)
+{
+  runBuzer(1);
+  feader();
+  delay(400);
+  rool1();
+
+  if(analogRead(IR3)<200)
+  {
+    for(printIndex=0;printIndex<text.length();printIndex++)
+    {
+      braillePrint(SymbolMatrices[getSymbolIndex(text[printIndex])]);
+      if(symbolNum==84)
+      {
+        rool2();
+        symbolNum=0;
+        resetStepperMotorX();
+        resetStepperMotorY();
+        y+=700; 
+        moveXY();
+        feader();
+        rool1();
+        if(analogRead(IR3)>200)
+        {
+          // PrevPrint=true;
+          break;
+        }
+      }
+    }
+    rool2();
+    runBuzer(2);
+    symbolNum=0;
+    resetStepperMotorX();
+    resetStepperMotorY();
+    y+=700;
+    moveXY();
+  }
+  // else
+  // {
+  //   PrevPrint=true;
+  // }
+}
+
 void braillePrint(bool Symbol[][2])
 {
   
@@ -389,14 +434,12 @@ void braillePrint(bool Symbol[][2])
 
   x+=30;
   symbolNum++;
-  if(symbolNum == 14)
+  if(symbolNum%14 == 0)
   {
-    symbolNum=0;
     y+=100;
     moveXY();
     resetStepperMotorX(); 
   }
-  
 }
 
 void rool1()
@@ -414,7 +457,7 @@ void rool1()
     for(int i=0 ; i<2;i++)
     {
     Serial.println(analogRead(IR1));
-    analogWrite(EN1,130);
+    analogWrite(EN1,150);
     delay(200);
     analogWrite(EN1,0);
     delay(100);
@@ -430,12 +473,25 @@ void rool2()
 {
   Serial.print("Roller2====>");
   Serial.print(analogRead(IR3));
+  int x=0;
   while(analogRead(IR3)<200)
   {
+    x++;
     Serial.println(analogRead(IR3));
-    analogWrite(EN2,255);
+    analogWrite(EN2,200);
     delay(200);
     analogWrite(EN2,0);
+    if(x==5){
+      x=0;
+      for(int i=0 ; i<3;i++)
+      {
+        Serial.println(analogRead(IR1));
+        analogWrite(EN1,130);
+        delay(100);
+        analogWrite(EN1,0);
+        delay(300);
+    }
+    }
     delay(200);
   }
 }
@@ -444,6 +500,7 @@ void feader()
 {
   if(analogRead(IR2)<200)
   {
+    s.write(120);
     while(analogRead(IR1)>200)
     {
       Serial.println(analogRead(IR2));
@@ -463,22 +520,27 @@ void feader()
   }
   else
   {
+    s.write(45);
+    lcd.setCursor(0, 0);
+    String ssa="gggfad";
+    lcd.print("                    ");
+    lcd.setCursor(0, 0);
+    lcd.print("No Paper");
     Serial.println("No Paper");
     Serial.println(analogRead(IR2));
-    for(int i=0;i<5;i++)
-    {
-      runBuzer();
-    }
+    // runBuzer(3);
   }
-  
 }
 
-void runBuzer()
+void runBuzer(int beepingNum)
 {
-  digitalWrite(buzer,LOW);
-  delay(500);
-  digitalWrite(buzer,HIGH);
-  delay(500);
+  for(int i=0;i<beepingNum;i++)
+  {
+    digitalWrite(buzer,LOW);
+    delay(500);
+    digitalWrite(buzer,HIGH);
+    delay(500);
+  }
 }
 
 
@@ -530,20 +592,15 @@ void setup() {
 
   digitalWrite(Solenoid,HIGH);
   digitalWrite(buzer,HIGH);
-  
   s.attach(servo);
-  s.write(120);
+  // runBuzer(1);
   lcd.begin(20, 4);  // Initialize the LCD with 16 columns and 4 rows
-
   lcd.setCursor(0, 0);
-  lcd.print("king.. Mohee Qwareeq");
-  
+  lcd.print("king.. samer arandi");
   lcd.setCursor(0, 1);
-  lcd.print("my name is momen ode");
-  
+  lcd.print("abu wae'l");
   lcd.setCursor(0, 2);
   lcd.print("my name is  noor ald");
-  
   lcd.setCursor(0, 3);
   lcd.print("sa ase oiuytrewqpopo");
   
@@ -553,62 +610,12 @@ void setup() {
   stepper2.setAcceleration(1200);
   resetStepperMotorX();
   resetStepperMotorY();
-  
-  
   feader();
-  delay(1000);
+  delay(400);
   rool1();
-  delay(1000);
-  
- 
-//  for(int i=0 ;i<20;i++)
-//  {
-//    knock(i*0,i*15);
-//  }
-//  stepper2.runToNewPosition(0);
-  
-//  knock(0,0);
-//  knock(0,15);
-//  knock(0,30);
-//  knock(15,30);
-//  knock(15,15);
-//  knock(15,0);
-bool c [3][2] ={
-    {true, true},
-    {true, true},
-    {true, true}
-  };
-//  y+=300; 
-//  moveXY();
-//  braillePrint(SymbolMatrices[getSymbolIndex('m')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('o')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('h')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('e')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('e')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex(' ')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('w')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('a')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('r')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('e')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('a')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('r')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('e')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('a')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('r')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('e')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
-//  braillePrint(SymbolMatrices[getSymbolIndex('q')]);
+  delay(400);
   rool2();
-  
-  s.write(45);
+  //printString("Hi in the braille printer we want to say story for you this printer made by computer engineering students at annajah national university in nablus");
 }
 
 
