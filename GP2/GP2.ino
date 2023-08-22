@@ -1,7 +1,7 @@
 #include <AccelStepper.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
-
+#include <SoftwareSerial.h>
 #define servo 2
 #define EN1 23
 #define EN2 24
@@ -24,12 +24,15 @@
 #define LCD_D5 37
 #define LCD_D6 38
 #define LCD_D7 39
-AccelStepper stepper1(1,stepPin1,dirPin1); //Y-Coordinate +ve to paper feeder 
+#define RXPin  15  // Serial Receive pin
+#define TXPin  14  // Serial Transmit pin
+AccelStepper stepper1(1,stepPin1,dirPin1); //Y-Coordinate +ve to paper feeder
 AccelStepper stepper2(1,stepPin2,dirPin2); //X-Xoordinate
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 Servo s;
-//
-
+SoftwareSerial RS485Serial(RXPin, TXPin); // RX, TX
+const int yAllign=700;
+int byteSend;
 const int numSymbol = 46; // Number of letters in the alphabet
 const int numRows = 3;     // Number of rows in each matrix
 const int numCols = 2;     // Number of columns in each matrix
@@ -336,6 +339,12 @@ bool SymbolMatrices[numSymbol][numRows][numCols]=
     {true, false},
     {false, false}
   },
+  // Matrix for ';'
+  {
+    {false, false},
+    {false, true},
+    {false, true}
+  },
 
   // ... continue initializing matrices for other letters
 }; // Array to store matrices
@@ -347,8 +356,23 @@ int getSymbolIndex(char c)
   {
     return c-'a'; 
   }
-  else if(c==' ')return 33;
-  return 0; 
+  else if(c >= 'A' && c <= 'Z')
+  {
+    return c-'A';
+  }
+  else if(c == '.')return 26;
+  else if(c==',')return 27;
+  else if(c=='?')return 28;
+  else if(c=='!')return 29;
+  else if(c=="'")return 30;
+  else if(c=='-')return 31;
+  else if(c=='#')return 31;
+  else if(c==' ')return 33;//captal34 number35
+  else if(c>='0' && c<='9')
+  {
+    return 36 + (c-'0');
+  }
+  else return 33;
 }
 
 void moveXY()
@@ -367,7 +391,8 @@ void knock()
   delay(100);
   digitalWrite(Solenoid,HIGH);
 }
-
+bool startCaptal = false;
+bool startNumber = false;
 void printString(String text)
 {
   runBuzer(1);
@@ -379,30 +404,42 @@ void printString(String text)
   {
     for(printIndex=0;printIndex<text.length();printIndex++)
     {
-      braillePrint(SymbolMatrices[getSymbolIndex(text[printIndex])]);
-      if(symbolNum==84)
+      if(startCaptal==false && text[printIndex]>='A'&&text[printIndex]<='Z')
       {
-        rool2();
-        symbolNum=0;
-        resetStepperMotorX();
-        resetStepperMotorY();
-        y+=700; 
-        moveXY();
-        feader();
-        rool1();
-        if(analogRead(IR3)>200)
+        if(printIndex+1 < text.length() && text[printIndex+1] >= 'A' && text[printIndex+1]<='Z')
         {
-          // PrevPrint=true;
-          break;
+          braillePrint(SymbolMatrices[34]);
+          braillePrint(SymbolMatrices[34]);
+          startCaptal=true;
+        }
+        else
+        {
+          braillePrint(SymbolMatrices[34]);
         }
       }
+      else if(startCaptal && !(text[printIndex]>='A'&&text[printIndex]<='Z')){
+        braillePrint(SymbolMatrices[34]);
+        braillePrint(SymbolMatrices[34]);
+        startCaptal=false;
+      }
+      else if(startNumber==false && text[printIndex] >= '0' && text[printIndex] <= '9'){
+        braillePrint(SymbolMatrices[35]);
+        startNumber = true;
+      }
+      else if(startNumber && !(text[printIndex] >= '0' && text[printIndex] <= '9')){
+        if(text[printIndex]!=' '){
+          braillePrint(SymbolMatrices[46]);
+        }
+      }
+      braillePrint(SymbolMatrices[getSymbolIndex(text[printIndex])]);
+
     }
     rool2();
     runBuzer(2);
     symbolNum=0;
     resetStepperMotorX();
     resetStepperMotorY();
-    y+=700;
+    y+=yAllign;
     moveXY();
   }
   // else
@@ -413,32 +450,44 @@ void printString(String text)
 
 void braillePrint(bool Symbol[][2])
 {
-  
-  for(int i=0 ; i<2 ; i++)
-  {
-    for(int j=0; j<3;j++)
+  if(analogRead(IR3)<200){
+    for(int i=0 ; i<2 ; i++)
     {
-      
-      if(Symbol[i==1?2-j:j][i])
+      for(int j=0; j<3;j++)
       {
-        moveXY();
-        knock();
         
+        if(Symbol[i==1?2-j:j][i])
+        {
+          moveXY();
+          knock();
+          
+        }
+        if(j==2);
+        else 
+          i==1?y-=15:y+=15;
       }
-      if(j==2);
-      else 
-        i==1?y-=15:y+=15;
+      x+=15;
     }
-    x+=15;
-  }
 
-  x+=30;
-  symbolNum++;
-  if(symbolNum%14 == 0)
-  {
-    y+=100;
-    moveXY();
-    resetStepperMotorX(); 
+    x+=30;
+    symbolNum++;
+    if(symbolNum!=84 && symbolNum%14 == 0)
+    {
+      y+=100;
+      moveXY();
+      resetStepperMotorX(); 
+    }
+    if(symbolNum==84)
+    {
+      rool2();
+      symbolNum=0;
+      resetStepperMotorX();
+      resetStepperMotorY();
+      y+=yAllign; 
+      moveXY();
+      feader();
+      rool1();
+    }
   }
 }
 
@@ -571,6 +620,10 @@ void resetStepperMotorY()
 }
 void setup() {
   Serial.begin(9600);
+  // pinMode(SERIAL_COMMUNICATION_CONTROL_PIN, OUTPUT);
+  // digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_RX_PIN_VALUE);
+  RS485Serial.begin(9600);   // set the data rate
+  delay(500);
   pinMode(EN1,OUTPUT); 
   pinMode(EN2,OUTPUT); 
   pinMode(EN3,OUTPUT);
@@ -592,37 +645,55 @@ void setup() {
 
   digitalWrite(Solenoid,HIGH);
   digitalWrite(buzer,HIGH);
-  s.attach(servo);
+  //s.attach(servo);
   // runBuzer(1);
   lcd.begin(20, 4);  // Initialize the LCD with 16 columns and 4 rows
   lcd.setCursor(0, 0);
-  lcd.print("king.. samer arandi");
+  lcd.print("Dr.samer arandi");
   lcd.setCursor(0, 1);
   lcd.print("abu wae'l");
   lcd.setCursor(0, 2);
-  lcd.print("my name is  noor ald");
+  lcd.print("braill printer");
   lcd.setCursor(0, 3);
-  lcd.print("sa ase oiuytrewqpopo");
-  
+  lcd.print("GP2 2023");
   stepper1.setMaxSpeed(200);
   stepper1.setAcceleration(1200);
   stepper2.setMaxSpeed(200);
   stepper2.setAcceleration(1200);
   resetStepperMotorX();
   resetStepperMotorY();
-  feader();
-  delay(400);
-  rool1();
-  delay(400);
-  rool2();
+  //feader();
+  // delay(400);
+  // rool1();
+  // delay(400);
+  // rool2();
   //printString("Hi in the braille printer we want to say story for you this printer made by computer engineering students at annajah national university in nablus");
+  // digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_TX_PIN_VALUE); // Now trasmit
 }
 
 
 void loop() {
-  Serial.print("limitX=:");
-  Serial.println(digitalRead(limitX));
-  Serial.print("limitY=:");
-  Serial.println(digitalRead(limitY));
+  // if (espSerial.available()) {
+  //   char receivedChar = espSerial.read();
+  //   Serial.print("Received: ");
+  //   Serial.println(receivedChar);
+  // }else{
+  //   Serial.println("no data");
+  // }
+    //  digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_RX_PIN_VALUE);  // Disable RS485 Transmit
+  Serial.println("Send data!");
+  RS485Serial.write("Hello world!"); // Send message
+
+  if (RS485Serial.available()){
+      Serial.println("Response available!");
+      Serial.println(RS485Serial.read());
+  }else{
+    Serial.println("Response not available!");
+  }
   delay(1000);
+  // Serial.print("limitX=:");
+  // Serial.println(digitalRead(limitX));
+  // Serial.print("limitY=:");
+  // Serial.println(digitalRead(limitY));
+  // delay(500);
 }
