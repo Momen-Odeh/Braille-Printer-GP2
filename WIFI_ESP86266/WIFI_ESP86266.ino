@@ -4,14 +4,18 @@
 
 #include <ESP8266WiFi.h>
 #include <FirebaseESP8266.h>
-
 #include <SoftwareSerial.h>
-SoftwareSerial espSerial(2, 3);
 const char* ssid = "hamodi";
 const char* password = "momen45321";
 const char* Firebase_Host = "braille-printer-b923b-default-rtdb.asia-southeast1.firebasedatabase.app";
 const char* Firebase_Auth = "4V7O6OimmFsUue4h6RNUsVtaWY3S3rSdZsjdbaqd";
 FirebaseData firebaseData;
+
+#define RXPin        D7  // Serial Receive pin
+#define TXPin        D8   // Serial Transmit pin
+//RS485 control
+
+SoftwareSerial RS485Serial(RXPin, TXPin); // RX, TX
 
 void connectToWiFi()
 {
@@ -22,14 +26,14 @@ void connectToWiFi()
   Serial.println(ssid);
   WiFi.hostname("Name");
   WiFi.begin(ssid, password);
- 
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
   Serial.println("WiFi connected");
- 
+
   // Print the IP address
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -37,13 +41,15 @@ void connectToWiFi()
 
 
 void setup() {
-  
   Serial.begin(9600);
-  espSerial.begin(19200);
   connectToWiFi();
-  delay(10);
+//  delay(10);
   Firebase.begin(Firebase_Host, Firebase_Auth);
-  
+  RS485Serial.begin(9600);   // set the data rate
+  pinMode(D1, OUTPUT);
+  digitalWrite(D1,LOW ); 
+
+
 }
 
 String getDataFirebase(String node)
@@ -54,10 +60,10 @@ String getDataFirebase(String node)
       Serial.print("Read data: ");
       Serial.println(firebaseData.stringData());
       return firebaseData.stringData();
-    } 
+    }
     else {
       Serial.println("Failed to read data");
-      
+
     }
   } else {
     Serial.println("Error fetching data");
@@ -65,7 +71,7 @@ String getDataFirebase(String node)
   return "";
 }
 
-void setDataFirebase(String node,String newValue)
+void setDataFirebase(String node, String newValue)
 {
   if (Firebase.setString(firebaseData, node, newValue)) {
     Serial.println("Value updated successfully");
@@ -73,87 +79,42 @@ void setDataFirebase(String node,String newValue)
     Serial.println("Error updating value");
   }
 }
-
+String dataReceived;
+bool isDataReceived = false;  
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    String m = getDataFirebase("/msg");
-    espSerial.println("sssssssssss");
-    if(getDataFirebase("/status") != "old")
+    String msg = getDataFirebase("/msg")+"\n";
+    String statusMsg = getDataFirebase("/status");
+
+    if(statusMsg == "new")
     {
-      setDataFirebase("/status","old");  
+      RS485Serial.write(msg.c_str());
+      setDataFirebase("/status", "old");
     }
-    
+    if (RS485Serial.available())
+    {
+    String incoming =  RS485Serial.readString();
+    Serial.print(incoming.c_str());
+    }
+
   }
   else
   {
     Serial.println("No WiFi connection Reconnect");
     connectToWiFi();
   }
-  
-  delay(100); 
+}
+//
+//  delay(100);
   //***********************************************************************************
-}
-
-
-
-
-/************************************************************/
- String httpGETRequest(const char* serverName)
- {
-  WiFiClient client;
-  HTTPClient http;
-    
-  // Your IP address with path or Domain name with URL path 
-  http.begin(client, serverName);
-  
-  // Send HTTP POST request
-  int httpResponseCode = http.GET();
-  
-  String payload = "{}"; 
-  
-  if (httpResponseCode>0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
-    payload = http.getString();
-  }
-  else {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
-  // Free resources
-  http.end();
-  
-  return payload;
-}
-
-void getDataHTTP()
-{
-  if (WiFi.status() == WL_CONNECTED) {
-    // Declare an object of class HTTPClient
-    HTTPClient http;
-    WiFiClient client;
-    // Specify request destination
-    String url = "http://jsonplaceholder.typicode.com/users/1";
-    http.begin(client,url);
-    
-    // Send the request
-    Serial.println("Request URL:" + url);
-    int httpCode = http.GET();
-    
-    // Check the returning code
-    if (httpCode > 0) {
-      // Get the request response payload
-      String payload = http.getString();
-      // Print the response payload
-      Serial.println(payload);
-
-    } else {
-      Serial.print("Error: status code ");
-      Serial.println(httpCode);
-    }
-    
-    // Close connection
-    http.end();
-  }
-}
-/************************************************************/
+ 
+//if (Serial.available()) { // Check if there is any data available from the serial port
+//    String outgoing =  Serial.readString(); // Read the outgoing string from the serial port
+//    Serial.print(outgoing); // Print the outgoing string to the serial port for debugging
+//    RS485Serial.write(outgoing.c_str()); // Send a response back to the Bluetooth module
+//  }
+//
+//  if (RS485Serial.available()) { // Check if there is any data available from the Bluetooth module
+//    String incoming =  RS485Serial.readString(); // Read the incoming string from the Bluetooth module
+//    Serial.print(incoming.c_str()); // Print the received string to the serial port for debugging
+//  }
