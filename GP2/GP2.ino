@@ -24,16 +24,16 @@
 #define LCD_D5 37
 #define LCD_D6 38
 #define LCD_D7 39
-#define RXPin  15  // Serial Receive pin
-#define TXPin  14  // Serial Transmit pin
+#define RXPin  10  // Serial Receive pin
+#define TXPin  11  // Serial Transmit pin
 AccelStepper stepper1(1,stepPin1,dirPin1); //Y-Coordinate +ve to paper feeder
 AccelStepper stepper2(1,stepPin2,dirPin2); //X-Xoordinate
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 Servo s;
-SoftwareSerial RS485Serial(RXPin, TXPin); // RX, TX
-const int yAllign=700;
+SoftwareSerial WiFi_Data(RXPin, TXPin); // RX, TX
+const int yAllign=50;
 int byteSend;
-const int numSymbol = 46; // Number of letters in the alphabet
+const int numSymbol = 47; // Number of letters in the alphabet
 const int numRows = 3;     // Number of rows in each matrix
 const int numCols = 2;     // Number of columns in each matrix
 int PrevPrint = false;
@@ -339,17 +339,19 @@ bool SymbolMatrices[numSymbol][numRows][numCols]=
     {true, false},
     {false, false}
   },
-  // Matrix for ';'
+  //Matrix for ';'
   {
     {false, false},
     {false, true},
     {false, true}
   },
-
   // ... continue initializing matrices for other letters
 }; // Array to store matrices
 int x=0, y=0,symbolNum=0;
-
+bool startCaptal = false;
+bool startNumber = false;
+bool prevIsDigit = false;
+int thereIsPaper=true;
 int getSymbolIndex(char c)
 {
   if(c >= 'a' && c<='z')
@@ -372,7 +374,7 @@ int getSymbolIndex(char c)
   {
     return 36 + (c-'0');
   }
-  else return 33;
+  else return 33;//any other char return ' '
 }
 
 void moveXY()
@@ -388,25 +390,33 @@ void moveXY()
 void knock()
 {
   digitalWrite(Solenoid,LOW);
-  delay(100);
+  delay(12);
   digitalWrite(Solenoid,HIGH);
 }
-bool startCaptal = false;
-bool startNumber = false;
+
 void printString(String text)
-{
+{      
+  resetStepperMotorX();
+  resetStepperMotorY();
+  y+=yAllign;
+  moveXY();
   runBuzer(1);
   feader();
   delay(400);
-  rool1();
-
+  roll1();
   if(analogRead(IR3)<200)
   {
     for(printIndex=0;printIndex<text.length();printIndex++)
     {
+      lcd.setCursor(0, 0);
+      lcd.print("  Braille  Printer  ");
+      lcd.setCursor(0, 1);
+      lcd.print("      GP2 2023      ");
+      if(!thereIsPaper)break;
       if(startCaptal==false && text[printIndex]>='A'&&text[printIndex]<='Z')
       {
-        if(printIndex+1 < text.length() && text[printIndex+1] >= 'A' && text[printIndex+1]<='Z')
+        if(printIndex>0 && text[printIndex-1] >= '0' && text[printIndex-1] <= '9' && startNumber) prevIsDigit=true;
+        else if(printIndex+1 < text.length() && text[printIndex+1] >= 'A' && text[printIndex+1]<='Z')
         {
           braillePrint(SymbolMatrices[34]);
           braillePrint(SymbolMatrices[34]);
@@ -422,30 +432,48 @@ void printString(String text)
         braillePrint(SymbolMatrices[34]);
         startCaptal=false;
       }
-      else if(startNumber==false && text[printIndex] >= '0' && text[printIndex] <= '9'){
+
+      if(startNumber==false && text[printIndex] >= '0' && text[printIndex] <= '9'){
         braillePrint(SymbolMatrices[35]);
         startNumber = true;
       }
       else if(startNumber && !(text[printIndex] >= '0' && text[printIndex] <= '9')){
         if(text[printIndex]!=' '){
-          braillePrint(SymbolMatrices[46]);
+          braillePrint(SymbolMatrices[46]);//print ;
         }
+        startNumber = false;
       }
-      braillePrint(SymbolMatrices[getSymbolIndex(text[printIndex])]);
+      if(!prevIsDigit)
+      {
+        lcd.setCursor(0, 2);
+        lcd.print("                    ");
+        lcd.setCursor(0, 2);
+        lcd.print("printing char: ");
+        lcd.print(text[printIndex]);
+        if(printIndex%20 ==0){
+          lcd.setCursor(0, 3);
+          lcd.print("                    ");
+        }
+        lcd.setCursor((printIndex%20), 3);
+        lcd.print(text[printIndex]);
 
+        braillePrint(SymbolMatrices[getSymbolIndex(text[printIndex])]);
+      }
+      else{
+        prevIsDigit=false;
+        printIndex--;
+      }
     }
-    rool2();
-    runBuzer(2);
-    symbolNum=0;
-    resetStepperMotorX();
-    resetStepperMotorY();
-    y+=yAllign;
-    moveXY();
+    if(thereIsPaper){
+      roll2();
+      runBuzer(2);
+      symbolNum=0;
+      resetStepperMotorX();
+      resetStepperMotorY();
+      y+=yAllign;
+      moveXY();
+    }
   }
-  // else
-  // {
-  //   PrevPrint=true;
-  // }
 }
 
 void braillePrint(bool Symbol[][2])
@@ -460,7 +488,7 @@ void braillePrint(bool Symbol[][2])
         {
           moveXY();
           knock();
-          
+          delay(20);
         }
         if(j==2);
         else 
@@ -479,19 +507,28 @@ void braillePrint(bool Symbol[][2])
     }
     if(symbolNum==84)
     {
-      rool2();
+      roll2();
       symbolNum=0;
       resetStepperMotorX();
       resetStepperMotorY();
       y+=yAllign; 
       moveXY();
       feader();
-      rool1();
+      roll1();
     }
+  }
+  else{
+      symbolNum=0;
+      resetStepperMotorX();
+      resetStepperMotorY();
+      y+=yAllign;
+      moveXY();
+      feader();
+      roll1();
   }
 }
 
-void rool1()
+void roll1()
 {
   if(analogRead(IR1)<200)
   {
@@ -503,7 +540,7 @@ void rool1()
     analogWrite(EN1,0);
     delay(100);
     }
-    for(int i=0 ; i<2;i++)
+    for(int i=0 ; i<3;i++)
     {
     Serial.println(analogRead(IR1));
     analogWrite(EN1,150);
@@ -511,6 +548,11 @@ void rool1()
     analogWrite(EN1,0);
     delay(100);
     }
+    Serial.println(analogRead(IR1));
+    analogWrite(EN2,200);
+    delay(10);
+    analogWrite(EN2,0);
+    delay(1000);
   }
   else
   {
@@ -518,7 +560,7 @@ void rool1()
   }
 }
 
-void rool2()
+void roll2()
 {
   Serial.print("Roller2====>");
   Serial.print(analogRead(IR3));
@@ -530,8 +572,7 @@ void rool2()
     analogWrite(EN2,200);
     delay(200);
     analogWrite(EN2,0);
-    if(x==5){
-      x=0;
+    if((x%5)==0){
       for(int i=0 ; i<3;i++)
       {
         Serial.println(analogRead(IR1));
@@ -539,7 +580,14 @@ void rool2()
         delay(100);
         analogWrite(EN1,0);
         delay(300);
+      }
     }
+    if(x==15){
+      runBuzer(2);
+      lcd.setCursor(0, 2);
+      lcd.print("roller2: paper stuck");
+      lcd.setCursor(0, 3);
+      lcd.print("                    ");
     }
     delay(200);
   }
@@ -547,9 +595,17 @@ void rool2()
 
 void feader()
 {
+  if(analogRead(IR3)<200){
+    roll2();
+  }
+  else if(analogRead(IR1)<200){
+    roll1();
+    roll2();
+  }
+  controlServo();
   if(analogRead(IR2)<200)
   {
-    s.write(120);
+    thereIsPaper=true;
     while(analogRead(IR1)>200)
     {
       Serial.println(analogRead(IR2));
@@ -558,7 +614,6 @@ void feader()
         analogWrite(EN3,0);
         delay(150);
     }
-
     for(int i=0 ; i<10;i++)
     {
         analogWrite(EN3,180);
@@ -569,15 +624,14 @@ void feader()
   }
   else
   {
-    s.write(45);
-    lcd.setCursor(0, 0);
-    String ssa="gggfad";
+    lcd.setCursor(0, 2);
+    lcd.print("      No Paper      ");
+    lcd.setCursor(0, 3);
     lcd.print("                    ");
-    lcd.setCursor(0, 0);
-    lcd.print("No Paper");
     Serial.println("No Paper");
     Serial.println(analogRead(IR2));
-    // runBuzer(3);
+    runBuzer(3);
+    thereIsPaper=false;
   }
 }
 
@@ -618,11 +672,19 @@ void resetStepperMotorY()
   }
   digitalWrite(EnableStepper,LOW);
 }
+
+void controlServo(){
+    s.attach(servo);
+    if(analogRead(IR2) > 200){
+      s.write(30);
+    }else{
+      s.write(100);
+    }
+}
+
 void setup() {
   Serial.begin(9600);
-  // pinMode(SERIAL_COMMUNICATION_CONTROL_PIN, OUTPUT);
-  // digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_RX_PIN_VALUE);
-  RS485Serial.begin(9600);   // set the data rate
+  WiFi_Data.begin(9600);   // set the data rate
   delay(500);
   pinMode(EN1,OUTPUT); 
   pinMode(EN2,OUTPUT); 
@@ -640,60 +702,44 @@ void setup() {
   pinMode(dirPin2,OUTPUT);
   pinMode(buzer,OUTPUT);
   pinMode(servo,OUTPUT);
-  
-//  digitalWrite(EnableStepper,HIGH);
-
   digitalWrite(Solenoid,HIGH);
   digitalWrite(buzer,HIGH);
-  //s.attach(servo);
-  // runBuzer(1);
+  runBuzer(1);
   lcd.begin(20, 4);  // Initialize the LCD with 16 columns and 4 rows
   lcd.setCursor(0, 0);
-  lcd.print("Dr.samer arandi");
+  lcd.print("  Braille  Printer  ");
   lcd.setCursor(0, 1);
-  lcd.print("abu wae'l");
+  lcd.print("      GP2 2023      ");
   lcd.setCursor(0, 2);
-  lcd.print("braill printer");
+  lcd.print("                    ");
   lcd.setCursor(0, 3);
-  lcd.print("GP2 2023");
+  lcd.print("                    ");
   stepper1.setMaxSpeed(200);
   stepper1.setAcceleration(1200);
   stepper2.setMaxSpeed(200);
   stepper2.setAcceleration(1200);
   resetStepperMotorX();
   resetStepperMotorY();
-  //feader();
+  controlServo();
+  printString("   Hello World   ");
+  // feader();
   // delay(400);
-  // rool1();
-  // delay(400);
-  // rool2();
-  //printString("Hi in the braille printer we want to say story for you this printer made by computer engineering students at annajah national university in nablus");
-  // digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_TX_PIN_VALUE); // Now trasmit
+  // roll1();
+  // roll2();
 }
 
 
 void loop() {
-  // if (espSerial.available()) {
-  //   char receivedChar = espSerial.read();
-  //   Serial.print("Received: ");
-  //   Serial.println(receivedChar);
-  // }else{
-  //   Serial.println("no data");
-  // }
-    //  digitalWrite(SERIAL_COMMUNICATION_CONTROL_PIN, RS485_RX_PIN_VALUE);  // Disable RS485 Transmit
-  Serial.println("Send data!");
-  RS485Serial.write("Hello world!"); // Send message
-
-  if (RS485Serial.available()){
-      Serial.println("Response available!");
-      Serial.println(RS485Serial.read());
-  }else{
-    Serial.println("Response not available!");
+  lcd.setCursor(0, 0);
+  lcd.print("  Braille  Printer  ");
+  lcd.setCursor(0, 1);
+  lcd.print("      GP2 2023      ");
+  if (WiFi_Data.available()) {
+    String incoming =  WiFi_Data.readString();
+    if(incoming!=NULL){
+      String outgoing = "received\n";
+      WiFi_Data.write(outgoing.c_str());
+    }
+    Serial.print(incoming.c_str());
   }
-  delay(1000);
-  // Serial.print("limitX=:");
-  // Serial.println(digitalRead(limitX));
-  // Serial.print("limitY=:");
-  // Serial.println(digitalRead(limitY));
-  // delay(500);
 }
