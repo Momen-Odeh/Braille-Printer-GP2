@@ -91,7 +91,7 @@ void loop() {
     {
       String incoming =  RS485Serial.readString();
       Serial.print(incoming.c_str());
-      if(strcmp(incoming.c_str(),"recived")==0)
+      if(strcmp(incoming.c_str(),"received")==0)
       {
         setDataFirebase("/status", "in progress");
       }
