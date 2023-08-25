@@ -28,11 +28,12 @@ void connectToWiFi()
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(500);    
     Serial.print(".");
   }
   Serial.println("");
   Serial.println("WiFi connected");
+  RS485Serial.write("WiFi connected");
 
   // Print the IP address
   Serial.print("IP address: ");
@@ -42,14 +43,10 @@ void connectToWiFi()
 
 void setup() {
   Serial.begin(9600);
-  connectToWiFi();
-//  delay(10);
-  Firebase.begin(Firebase_Host, Firebase_Auth);
   RS485Serial.begin(9600);   // set the data rate
-  pinMode(D1, OUTPUT);
-  digitalWrite(D1,LOW ); 
-
-
+  connectToWiFi();
+  Firebase.begin(Firebase_Host, Firebase_Auth);
+  
 }
 
 String getDataFirebase(String node)
@@ -79,24 +76,36 @@ void setDataFirebase(String node, String newValue)
     Serial.println("Error updating value");
   }
 }
-String dataReceived;
-bool isDataReceived = false;  
+bool sentMsg = true; 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     String msg = getDataFirebase("/msg")+"\n";
     String statusMsg = getDataFirebase("/status");
 
-    if(statusMsg == "new")
+    if(statusMsg == "new" && sentMsg)
     {
       RS485Serial.write(msg.c_str());
-      setDataFirebase("/status", "old");
+      sentMsg=false; 
     }
     if (RS485Serial.available())
     {
-    String incoming =  RS485Serial.readString();
-    Serial.print(incoming.c_str());
+      String incoming =  RS485Serial.readString();
+      Serial.print(incoming.c_str());
+      if(strcmp(incoming.c_str(),"recived")==0)
+      {
+        setDataFirebase("/status", "in progress");
+      }
+      else if(strcmp(incoming.c_str(),"not recived")==0)
+      {
+        sentMsg=true;
+      }
+      else if(strcmp(incoming.c_str(),"finished")==0)
+      {
+        setDataFirebase("/status", "finished");
+        sentMsg=true;
+      }
+      
     }
-
   }
   else
   {
