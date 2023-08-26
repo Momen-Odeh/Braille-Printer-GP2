@@ -38,6 +38,7 @@ const int numRows = 3;     // Number of rows in each matrix
 const int numCols = 2;     // Number of columns in each matrix
 int PrevPrint = false;
 int printIndex = 0;
+const int maxCharNumber = 154;
 bool SymbolMatrices[numSymbol][numRows][numCols]= 
 {
   // Matrix for 'A'
@@ -472,6 +473,10 @@ void printString(String text)
       resetStepperMotorY();
       y+=yAllign;
       moveXY();
+      lcd.setCursor(0, 2);
+      lcd.print("  Finish Printing   ");
+      lcd.setCursor(0, 3);
+      lcd.print("                    ");
     }
   }
 }
@@ -499,13 +504,13 @@ void braillePrint(bool Symbol[][2])
 
     x+=30;
     symbolNum++;
-    if(symbolNum!=84 && symbolNum%14 == 0)
+    if(symbolNum!=maxCharNumber && symbolNum%14 == 0)
     {
       y+=100;
       moveXY();
       resetStepperMotorX(); 
     }
-    if(symbolNum==84)
+    if(symbolNum==maxCharNumber)
     {
       roll2();
       symbolNum=0;
@@ -535,22 +540,22 @@ void roll1()
     while(analogRead(IR3)>200)
     {
     Serial.println(analogRead(IR1));
-    analogWrite(EN1,150);
+    analogWrite(EN1,220);
     delay(200);
     analogWrite(EN1,0);
     delay(100);
     }
-    for(int i=0 ; i<3;i++)
+    for(int i=0 ; i<4;i++)
     {
     Serial.println(analogRead(IR1));
-    analogWrite(EN1,150);
+    analogWrite(EN1,220);
     delay(200);
     analogWrite(EN1,0);
     delay(100);
     }
     Serial.println(analogRead(IR1));
     analogWrite(EN2,200);
-    delay(10);
+    delay(15);
     analogWrite(EN2,0);
     delay(1000);
   }
@@ -576,7 +581,7 @@ void roll2()
       for(int i=0 ; i<3;i++)
       {
         Serial.println(analogRead(IR1));
-        analogWrite(EN1,130);
+        analogWrite(EN1,200);
         delay(100);
         analogWrite(EN1,0);
         delay(300);
@@ -678,7 +683,7 @@ void controlServo(){
     if(analogRead(IR2) > 200){
       s.write(30);
     }else{
-      s.write(100);
+      s.write(110);
     }
 }
 
@@ -721,15 +726,34 @@ void setup() {
   resetStepperMotorX();
   resetStepperMotorY();
   controlServo();
-  printString("   Hello World   ");
+  lcd.setCursor(0, 2);
+  lcd.print("start connecting ...");
+  while(true){
+    if (WiFi_Data.available()) {
+      String incoming =  WiFi_Data.readString();
+      if(strcmp(incoming.c_str(), "WiFi connected") == 0){
+          lcd.setCursor(0, 2);
+          lcd.print("   WiFi connected   ");
+          Serial.print(incoming.c_str());
+          break;
+      }
+    }
+  }
+  lcd.setCursor(0, 3);
+  lcd.print("  Server connected  ");
+
+  /*
+  // printString("   Hello World   ");
   // feader();
   // delay(400);
   // roll1();
   // roll2();
+  */
 }
 
 
 void loop() {
+  controlServo();
   lcd.setCursor(0, 0);
   lcd.print("  Braille  Printer  ");
   lcd.setCursor(0, 1);
@@ -737,9 +761,19 @@ void loop() {
   if (WiFi_Data.available()) {
     String incoming =  WiFi_Data.readString();
     if(incoming!=NULL){
-      String outgoing = "received\n";
+      String outgoing = "received";
+      WiFi_Data.write(outgoing.c_str());
+
+      printString(incoming.c_str());
+
+      outgoing = "finished";
+      WiFi_Data.write(outgoing.c_str());
+    }else{
+      String outgoing = "not received";
       WiFi_Data.write(outgoing.c_str());
     }
     Serial.print(incoming.c_str());
   }
+
+
 }
