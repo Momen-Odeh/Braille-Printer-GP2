@@ -3,14 +3,14 @@
 #include <Servo.h>
 #include <SoftwareSerial.h>
 #define servo 2
-#define EN1 23
-#define EN2 24
-#define EN3 25
+#define EN1 23 //roller1
+#define EN2 24 //roller2
+#define EN3 25 //feeder
 #define limitX 26
 #define limitY 27
-#define IR1 A1
-#define IR2 A2
-#define IR3 A0
+#define IR1 A1//roller1
+#define IR2 A2//feeder
+#define IR3 A0//roller2
 #define Solenoid 22
 #define EnableStepper 28
 #define stepPin1 29
