@@ -92,9 +92,8 @@ void loop() {
       if(strcmp(incoming.c_str(),"received")==0)
       {
         setDataFirebase("/status", "in progress");
-        
       }
-      else if(strcmp(incoming.c_str(),"not recived")==0)
+      else if(strcmp(incoming.c_str(),"not received")==0)
       {
         sentMsg=true;
       }
