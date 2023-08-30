@@ -471,8 +471,6 @@ void printString(String text)
       symbolNum=0;
       resetStepperMotorX();
       resetStepperMotorY();
-      y+=yAllign;
-      moveXY();
       lcd.setCursor(0, 2);
       lcd.print("  Finish Printing   ");
       lcd.setCursor(0, 3);
@@ -632,16 +630,17 @@ void feader()
   }
   else
   {
+    String outgoing = "no paper";
+    WiFi_Data.write(outgoing.c_str());
+    thereIsPaper=false;
     lcd.setCursor(0, 2);
     lcd.print("      No Paper      ");
     lcd.setCursor(0, 3);
     lcd.print("                    ");
     Serial.println("No Paper");
     Serial.println(analogRead(IR2));
-    String outgoing = "no paper";
-    WiFi_Data.write(outgoing.c_str());
     runBuzer(3);
-    thereIsPaper=false;
+    
   }
 }
 
@@ -746,13 +745,6 @@ void setup() {
   lcd.setCursor(0, 3);
   lcd.print("  Server connected  ");
 
-  /*
-  // printString("   Hello World   ");
-  // feader();
-  // delay(400);
-  // roll1();
-  // roll2();
-  */
 }
 
 
@@ -768,13 +760,24 @@ void loop() {
   if (WiFi_Data.available()) {
     String incoming =  WiFi_Data.readString();
     if(incoming!=NULL){
-      String outgoing = "received";
-      WiFi_Data.write(outgoing.c_str());
+      if(analogRead(IR2)>200){
+        String outgoing = "no paper";
+        WiFi_Data.write(outgoing.c_str());
+        lcd.setCursor(0, 2);
+        lcd.print("      No Paper      ");
+        lcd.setCursor(0, 3);
+        lcd.print("                    ");
+        runBuzer(3);
+      }
+      else{
+        String outgoing = "received";
+        WiFi_Data.write(outgoing.c_str());
 
-      printString(incoming.c_str());
+        printString(incoming.c_str());
 
-      outgoing = "finished";
-      WiFi_Data.write(outgoing.c_str());
+        outgoing = "finished";
+        WiFi_Data.write(outgoing.c_str());
+      }
     }else{
       String outgoing = "not received";
       WiFi_Data.write(outgoing.c_str());

@@ -77,9 +77,9 @@ void setDataFirebase(String node, String newValue)
 bool sentMsg = true; 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
+    setDataFirebase("/PrinterIsOn", "true");
     String msg = getDataFirebase("/msg")+"\n";
     String statusMsg = getDataFirebase("/status");
-
     if(statusMsg == "new" && sentMsg)
     {
       RS485Serial.write(msg.c_str());
@@ -100,6 +100,11 @@ void loop() {
       else if(strcmp(incoming.c_str(),"finished")==0)
       {
         setDataFirebase("/status", "finished");
+        sentMsg=true;
+      }
+      else if(strcmp(incoming.c_str(),"no paper")==0)
+      {
+        setDataFirebase("/status", "no paper");
         sentMsg=true;
       }
       
