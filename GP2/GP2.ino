@@ -478,6 +478,8 @@ void printString(String text)
       lcd.setCursor(0, 3);
       lcd.print("                    ");
     }
+    resetStepperMotorX();
+    resetStepperMotorY();
   }
 }
 
@@ -540,7 +542,7 @@ void roll1()
     while(analogRead(IR3)>200)
     {
     Serial.println(analogRead(IR1));
-    analogWrite(EN1,220);
+    analogWrite(EN1,255);
     delay(200);
     analogWrite(EN1,0);
     delay(100);
@@ -548,7 +550,7 @@ void roll1()
     for(int i=0 ; i<4;i++)
     {
     Serial.println(analogRead(IR1));
-    analogWrite(EN1,220);
+    analogWrite(EN1,255);
     delay(200);
     analogWrite(EN1,0);
     delay(100);
@@ -608,6 +610,7 @@ void feader()
     roll2();
   }
   controlServo();
+  delay(100);
   if(analogRead(IR2)<200)
   {
     thereIsPaper=true;
@@ -635,6 +638,8 @@ void feader()
     lcd.print("                    ");
     Serial.println("No Paper");
     Serial.println(analogRead(IR2));
+    String outgoing = "no paper";
+    WiFi_Data.write(outgoing.c_str());
     runBuzer(3);
     thereIsPaper=false;
   }
@@ -725,7 +730,6 @@ void setup() {
   stepper2.setAcceleration(1200);
   resetStepperMotorX();
   resetStepperMotorY();
-  controlServo();
   lcd.setCursor(0, 2);
   lcd.print("start connecting ...");
   while(true){
@@ -753,7 +757,10 @@ void setup() {
 
 
 void loop() {
-  controlServo();
+  if(analogRead(IR2) > 200){
+      s.attach(servo);
+      s.write(30);
+  }
   lcd.setCursor(0, 0);
   lcd.print("  Braille  Printer  ");
   lcd.setCursor(0, 1);
